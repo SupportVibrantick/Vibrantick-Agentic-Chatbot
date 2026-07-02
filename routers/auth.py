@@ -13,7 +13,7 @@ from schemas.auth import (
 from services.auth_service import AuthService
 
 router = APIRouter(
-    prefix="/api/auth",
+    prefix="/auth",
     tags=["Authentication"],
 )
 
@@ -27,7 +27,6 @@ def register(
     user_data: UserRegister,
     db: Session = Depends(get_db),
 ):
-
     auth_service = AuthService(db)
 
     try:
@@ -38,6 +37,7 @@ def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
+
 
 @router.post(
     "/login",
@@ -64,13 +64,13 @@ def login(
         "access_token": token,
         "token_type": "bearer",
     }
-    
-    
+
+
 @router.get(
     "/me",
     response_model=UserResponse,
 )
-def get_current_logged_in_user(
+def get_me(
     current_user: User = Depends(get_current_user),
 ):
     return current_user

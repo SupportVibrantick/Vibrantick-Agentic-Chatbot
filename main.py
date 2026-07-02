@@ -3,11 +3,15 @@ import models
 
 from fastapi import FastAPI
 from sqlalchemy import text
+from api.organizations import router as organizations_router
 
+from api import invitations
 from api.auth import router as auth_router
+from api.users import router as users_router
 from database.base import Base
 from database.engine import engine
 from core.logger import logger
+from api import organization_members
 from core.settings import settings
 
 
@@ -17,6 +21,28 @@ app = FastAPI(
 )
 
 app.include_router(auth_router)
+
+app.include_router(
+    invitations.router,
+    prefix="/api",
+)
+
+app.include_router(
+    users_router,
+    prefix="/api/users",
+    tags=["Users"],
+)
+
+app.include_router(
+    organizations_router,
+    prefix="/api",
+)
+
+
+app.include_router(
+    organization_members.router,
+    prefix="/api",
+)
 
 
 @app.on_event("startup")
@@ -47,3 +73,4 @@ async def health():
     return {
         "status": "healthy"
     }
+    
