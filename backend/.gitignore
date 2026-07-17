@@ -1,34 +1,90 @@
-# Python cache
+# ------------------------------
+# Python
+# ------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+*.so
 
-# Virtual environments
+# ------------------------------
+# Virtual Environments
+# ------------------------------
 .venv/
 venv/
 env/
 
-# Environment variables
+# ------------------------------
+# Environment Variables
+# ------------------------------
 .env
-Backend/.env
+.env.*
+!.env.example
+!.env.test.example
 
+# ------------------------------
 # IDE
+# ------------------------------
 .vscode/
 .idea/
 
-# OS files
+# ------------------------------
+# OS
+# ------------------------------
 .DS_Store
 Thumbs.db
 
-# Python tooling
+# ------------------------------
+# Python Tooling
+# ------------------------------
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
-# Build artifacts
+# ------------------------------
+# Coverage
+# ------------------------------
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# ------------------------------
+# Build
+# ------------------------------
 build/
 dist/
 *.egg-info/
 
+# ------------------------------
 # Logs
+# ------------------------------
 *.log
+logs/
+log/
+
+# ------------------------------
+# Databases
+# ------------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# ------------------------------
+# Storage
+# ------------------------------
+storage/*
+!storage/.gitkeep
+
+# ------------------------------
+# Alembic
+# ------------------------------
+alembic/__pycache__/
+
+# ------------------------------
+# Misc
+# ------------------------------
+.python-version
+*.swp
+*.swo
