@@ -5,6 +5,10 @@ from types import TracebackType
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.engine import AsyncSessionLocal
+from repositories.chatbot_repository import ChatbotRepository
+from repositories.chatbot_ai_config_repository import (
+    ChatbotAIConfigRepository,
+)
 from repositories.invitation_repository import InvitationRepository
 from repositories.member_repository import MemberRepository
 from repositories.organization_repository import OrganizationRepository
@@ -23,6 +27,10 @@ class UnitOfWork:
         self._organizations: OrganizationRepository | None = None
         self._members: MemberRepository | None = None
         self._invitations: InvitationRepository | None = None
+        self._chatbots: ChatbotRepository | None = None
+        self._chatbot_ai_configs: (
+            ChatbotAIConfigRepository | None
+        ) = None
 
     @property
     def session(self) -> AsyncSession:
@@ -49,12 +57,22 @@ class UnitOfWork:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-
         try:
             if exc_type is not None:
                 await self.rollback()
         finally:
             await self.session.close()
+
+            # Reset session
+            self._session = None
+
+            # Reset repositories
+            self._users = None
+            self._organizations = None
+            self._members = None
+            self._invitations = None
+            self._chatbots = None
+            self._chatbot_ai_configs = None
 
     # ---------------------------------------------------------
     # Transaction API
@@ -108,3 +126,23 @@ class UnitOfWork:
                 self.session
             )
         return self._invitations
+
+    @property
+    def chatbots(self) -> ChatbotRepository:
+        if self._chatbots is None:
+            self._chatbots = ChatbotRepository(
+                self.session
+            )
+        return self._chatbots
+
+    @property
+    def chatbot_ai_configs(
+        self,
+    ) -> ChatbotAIConfigRepository:
+        if self._chatbot_ai_configs is None:
+            self._chatbot_ai_configs = (
+                ChatbotAIConfigRepository(
+                    self.session
+                )
+            )
+        return self._chatbot_ai_configs

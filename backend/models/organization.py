@@ -40,9 +40,9 @@ class Organization(TimestampMixin, Base):
     )
 
     owner = relationship(
-    "User",
-    foreign_keys=[owner_id],
-    back_populates="organizations",
+        "User",
+        foreign_keys=[owner_id],
+        back_populates="organizations",
     )
 
     members = relationship(
@@ -50,12 +50,15 @@ class Organization(TimestampMixin, Base):
         back_populates="organization",
         cascade="all, delete-orphan",
     )
-    
-    
-    
-    invitations = relationship(
-    "Invitation",
-    back_populates="organization",
-    cascade="all, delete-orphan",
-)
 
+    invitations = relationship(
+        "Invitation",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
+
+    chatbots = relationship(
+        "Chatbot",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )

@@ -2,7 +2,7 @@ from sqlalchemy import select
 
 from core.roles import InvitationStatus
 from models.invitation import Invitation
-from repositories.base import BaseRepository
+from repositories.base_repository import BaseRepository
 
 
 class InvitationRepository(BaseRepository[Invitation]):

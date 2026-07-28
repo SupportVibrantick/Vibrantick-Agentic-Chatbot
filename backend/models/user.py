@@ -19,7 +19,7 @@ class User(TimestampMixin, Base):
         String(255),
         unique=True,
         index=True,
-        nullable=False,
+        nullable=False,                 
     )
 
     hashed_password: Mapped[str] = mapped_column(
@@ -36,5 +36,12 @@ class User(TimestampMixin, Base):
     organization_memberships = relationship(
         "OrganizationMember",
         back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    
+    created_chatbots = relationship(
+        "Chatbot",
+        foreign_keys="Chatbot.created_by",
+        back_populates="creator",
         cascade="all, delete-orphan",
     )

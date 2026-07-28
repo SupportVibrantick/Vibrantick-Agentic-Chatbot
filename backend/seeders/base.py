@@ -16,7 +16,7 @@ class BaseSeeder:
         await self.session.flush()
         return instance
 
-    async def commit(self) -> None:
+    async def flush(self) -> None:
         await self.session.flush()
     async def rollback(self) -> None:
         await self.session.rollback()

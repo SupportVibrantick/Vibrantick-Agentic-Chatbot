@@ -8,6 +8,9 @@ from api.auth import router as auth_router
 from api.users import router as users_router
 from database.base import Base
 from database.engine import engine
+from api.chatbot_ai_configs import (
+    router as chatbot_ai_configs_router,
+)
     
 from api.test_email import router as test_email_router
 from api import organization_members
@@ -52,7 +55,7 @@ app.include_router(
     organization_members.router,
     prefix="/api",
 )
-
+app.include_router(chatbot_ai_configs_router)
 
 
 @app.on_event("startup")

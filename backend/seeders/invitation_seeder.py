@@ -1,96 +1,40 @@
-from datetime import UTC, datetime, timedelta
-import secrets
+from __future__ import annotations
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from core.roles import (
-    InvitationStatus,
-    OrganizationRole,
-)
-
-from models.invitation import Invitation
-from models.organization import Organization
-from models.user import User
-
+from backend.seeders.builders.member_builder import MemberBuilder
 from seeders.base import BaseSeeder
 
 
-class InvitationSeeder(BaseSeeder):
-    def __init__(self, session: AsyncSession):
-        super().__init__(session)
+class MemberSeeder(BaseSeeder):
+    """
+    Seeds organization memberships.
+    """
 
-    async def create(
-        self,
-        organization: Organization,
-        inviter: User,
-        email: str,
-        role: OrganizationRole = OrganizationRole.MEMBER,
-        status: InvitationStatus = InvitationStatus.PENDING,
-        expires_at: datetime | None = None,
-    ) -> Invitation:
+    name = "organization_members"
 
-        invitation = Invitation(
-            organization_id=organization.id,
-            invited_by=inviter.id,
-            email=email,
-            token=secrets.token_urlsafe(32),
-            role=role,
-            status=status,
-            expires_at=expires_at
-            or (datetime.now(UTC) + timedelta(days=7)),
-        )
+    depends_on = (
+        "users",
+        "organizations",
+    )
 
-        await self.add(invitation)
-        await self.commit()
-        await self.refresh(invitation)
+    async def run(self) -> None:
+        builder = MemberBuilder(self.session)
 
-        return invitation
+        organization = self.context["organization"]
+        owner = self.context["owner"]
+        admin = self.context["admin"]
+        members = self.context["members"]
 
-    async def create_many(
-        self,
-        organization: Organization,
-        inviter: User,
-        emails: list[str],
-        role: OrganizationRole = OrganizationRole.MEMBER,
-    ) -> list[Invitation]:
-
-        invitations: list[Invitation] = []
-
-        for email in emails:
-            invitation = await self.get_or_create(
-                organization=organization,
-                inviter=inviter,
-                email=email,
-                role=role,
-            )
-            invitations.append(invitation)
-
-        return invitations
-
-    async def get_or_create(
-        self,
-        organization: Organization,
-        inviter: User,
-        email: str,
-        role: OrganizationRole = OrganizationRole.MEMBER,
-    ) -> Invitation:
-
-        stmt = select(Invitation).where(
-            Invitation.organization_id == organization.id,
-            Invitation.email == email,
-            Invitation.status == InvitationStatus.PENDING,
-        )
-
-        result = await self.session.execute(stmt)
-        invitation = result.scalar_one_or_none()
-
-        if invitation:
-            return invitation
-
-        return await self.create(
+        await builder.owner(
             organization=organization,
-            inviter=inviter,
-            email=email,
-            role=role,
+            user=owner,
+        )
+
+        await builder.admin(
+            organization=organization,
+            user=admin,
+        )
+
+        await builder.create_many(
+            organization=organization,
+            users=members,
         )

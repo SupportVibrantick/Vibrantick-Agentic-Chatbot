@@ -20,6 +20,18 @@ class Settings(BaseSettings):
     DATABASE_NAME: str
     DATABASE_USER: str
     DATABASE_PASSWORD: str
+    
+     # -------------------------
+    # OpenAI
+    # -------------------------
+    OPENAI_API_KEY: str = ""
+
+    DATABASE_HOST: str
+    DATABASE_PORT: int
+    DATABASE_NAME: str
+    DATABASE_USER: str
+    DATABASE_PASSWORD: str
+
 
     # -------------------------
     # Email Settings

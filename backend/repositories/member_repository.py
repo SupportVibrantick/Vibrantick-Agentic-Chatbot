@@ -2,7 +2,7 @@ from sqlalchemy import select
 
 from core.roles import OrganizationRole
 from models.organization_member import OrganizationMember
-from repositories.base import BaseRepository
+from repositories.base_repository import BaseRepository
 
 
 class MemberRepository(BaseRepository[OrganizationMember]):
