@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.session import get_db
 from dependencies.auth import get_current_user
@@ -19,18 +19,19 @@ router = APIRouter(
     tags=["Public Invitations"],
 )
 
+
 @router.get(
     "/{token}",
     response_model=InvitationDetailsResponse,
 )
-def get_invitation(
+async def get_invitation(
     token: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     service = InvitationService(db)
 
-    invitation = service.get_invitation_by_token(
-        token
+    invitation = await service.get_invitation_by_token(
+        token,
     )
 
     return InvitationDetailsResponse(
@@ -41,18 +42,19 @@ def get_invitation(
         status=invitation.status,
     )
 
+
 @router.post(
     "/{token}/accept",
     response_model=AcceptInvitationResponse,
 )
-def accept_invitation(
+async def accept_invitation(
     token: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = InvitationService(db)
 
-    return service.accept_invitation(
+    return await service.accept_invitation(
         token=token,
         current_user=current_user,
     )

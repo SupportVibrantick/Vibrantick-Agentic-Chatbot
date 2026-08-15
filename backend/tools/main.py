@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 
 from database.session import AsyncSessionLocal
 from seeders.framework.manager import ExecutionManager
@@ -9,9 +10,7 @@ async def main() -> int:
 
     registry = SeederRegistry()
 
-    registry.discover(
-        "backend.seeders.builders"
-    )
+    registry.discover("seeders")
 
     manager = ExecutionManager(
         session_factory=AsyncSessionLocal,
@@ -20,8 +19,10 @@ async def main() -> int:
 
     try:
         await manager.execute()
+
     except Exception as exc:
-        print(f"\nSeeder execution failed:\n{exc}")
+        print(f"\nSeeder execution failed:\n{exc}\n")
+        traceback.print_exc()      # <-- ADD THIS
         return 1
 
     return 0

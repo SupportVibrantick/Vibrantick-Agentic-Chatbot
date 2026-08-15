@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from types import TracebackType
@@ -5,23 +6,44 @@ from types import TracebackType
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.engine import AsyncSessionLocal
+
+from repositories.user_repository import UserRepository
+from repositories.organization_repository import OrganizationRepository
+from repositories.member_repository import MemberRepository
+from repositories.invitation_repository import InvitationRepository
 from repositories.chatbot_repository import ChatbotRepository
 from repositories.chatbot_ai_config_repository import (
     ChatbotAIConfigRepository,
 )
-from repositories.invitation_repository import InvitationRepository
-from repositories.member_repository import MemberRepository
-from repositories.organization_repository import OrganizationRepository
-from repositories.user_repository import UserRepository
+from repositories.knowledge_base_repository import (
+    KnowledgeBaseRepository,
+)
+from repositories.document_repository import (
+    DocumentRepository,
+)
+from repositories.document_chunk_repository import (
+    DocumentChunkRepository,
+)
+from repositories.conversation_repository import ConversationRepository
+from repositories.message_repository import MessageRepository
 
 
 class UnitOfWork:
     """
     Coordinates repositories and manages a single database transaction.
+
+    A UnitOfWork can either:
+    - create its own AsyncSession for normal application usage, or
+    - receive an existing AsyncSession for tests / externally managed
+      transactions.
     """
 
-    def __init__(self) -> None:
-        self._session: AsyncSession | None = None
+    def __init__(
+        self,
+        session: AsyncSession | None = None,
+    ) -> None:
+        self._session = session
+        self._external_session = session is not None
 
         self._users: UserRepository | None = None
         self._organizations: OrganizationRepository | None = None
@@ -31,15 +53,24 @@ class UnitOfWork:
         self._chatbot_ai_configs: (
             ChatbotAIConfigRepository | None
         ) = None
+        self._knowledge_bases: (
+            KnowledgeBaseRepository | None
+        ) = None
+        self._documents: (
+            DocumentRepository | None
+        ) = None
+        self._document_chunks: (
+            DocumentChunkRepository | None
+        ) = None
+        self._conversations: ConversationRepository | None = None
+        self._messages: MessageRepository | None = None
+
+    # ---------------------------------------------------------
+    # Session
+    # ---------------------------------------------------------
 
     @property
     def session(self) -> AsyncSession:
-        """
-        Return the active session.
-
-        Raises:
-            RuntimeError: if accessed before entering the context.
-        """
         if self._session is None:
             raise RuntimeError(
                 "UnitOfWork has not been entered."
@@ -48,7 +79,9 @@ class UnitOfWork:
         return self._session
 
     async def __aenter__(self) -> UnitOfWork:
-        self._session = AsyncSessionLocal()
+        if self._session is None:
+            self._session = AsyncSessionLocal()
+
         return self
 
     async def __aexit__(
@@ -61,18 +94,22 @@ class UnitOfWork:
             if exc_type is not None:
                 await self.rollback()
         finally:
-            await self.session.close()
+            if not self._external_session:
+                await self.session.close()
 
-            # Reset session
             self._session = None
 
-            # Reset repositories
             self._users = None
             self._organizations = None
             self._members = None
             self._invitations = None
             self._chatbots = None
             self._chatbot_ai_configs = None
+            self._knowledge_bases = None
+            self._documents = None
+            self._document_chunks = None
+            self._conversations = None
+            self._messages = None
 
     # ---------------------------------------------------------
     # Transaction API
@@ -101,6 +138,7 @@ class UnitOfWork:
     def users(self) -> UserRepository:
         if self._users is None:
             self._users = UserRepository(self.session)
+
         return self._users
 
     @property
@@ -109,6 +147,7 @@ class UnitOfWork:
             self._organizations = OrganizationRepository(
                 self.session
             )
+
         return self._organizations
 
     @property
@@ -117,6 +156,7 @@ class UnitOfWork:
             self._members = MemberRepository(
                 self.session
             )
+
         return self._members
 
     @property
@@ -125,6 +165,7 @@ class UnitOfWork:
             self._invitations = InvitationRepository(
                 self.session
             )
+
         return self._invitations
 
     @property
@@ -133,6 +174,7 @@ class UnitOfWork:
             self._chatbots = ChatbotRepository(
                 self.session
             )
+
         return self._chatbots
 
     @property
@@ -145,4 +187,56 @@ class UnitOfWork:
                     self.session
                 )
             )
+
         return self._chatbot_ai_configs
+
+    @property
+    def knowledge_bases(
+        self,
+    ) -> KnowledgeBaseRepository:
+        if self._knowledge_bases is None:
+            self._knowledge_bases = (
+                KnowledgeBaseRepository(
+                    self.session
+                )
+            )
+
+        return self._knowledge_bases
+
+    @property
+    def documents(
+        self,
+    ) -> DocumentRepository:
+        if self._documents is None:
+            self._documents = (
+                DocumentRepository(
+                    self.session
+                )
+            )
+
+        return self._documents
+
+    @property
+    def document_chunks(
+        self,
+    ) -> DocumentChunkRepository:
+        if self._document_chunks is None:
+            self._document_chunks = (
+                DocumentChunkRepository(
+                    self.session
+                )
+            )
+
+        return self._document_chunks
+
+    @property
+    def conversations(self) -> ConversationRepository:
+        if self._conversations is None:
+            self._conversations = ConversationRepository(self.session)
+        return self._conversations
+
+    @property
+    def messages(self) -> MessageRepository:
+        if self._messages is None:
+            self._messages = MessageRepository(self.session)
+        return self._messages

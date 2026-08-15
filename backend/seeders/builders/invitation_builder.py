@@ -14,7 +14,7 @@ from models.invitation import Invitation
 from models.organization import Organization
 from models.user import User
 
-
+from seeders.builders.base import  BuilderBase
 class InvitationBuilder:
     """
     Builder responsible for creating Invitation entities.
@@ -56,13 +56,8 @@ class InvitationBuilder:
             ),
         )
 
-        self.session.add(invitation)
-
-        await self.session.flush()
-        await self.session.refresh(invitation)
-
-        return invitation
-
+        return await self.persist(invitation)
+    
     async def get_or_create(
         self,
         organization: Organization,

@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
 from datetime import datetime
 from enum import Enum
-
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -33,6 +32,7 @@ class ChatbotStatus(str, Enum):
 
 if TYPE_CHECKING:
     from models.conversation import Conversation
+    from models.knowledge_base import KnowledgeBase
     
 class Chatbot(TimestampMixin, Base):
     __tablename__ = "chatbots"
@@ -140,6 +140,12 @@ class Chatbot(TimestampMixin, Base):
 
     conversations: Mapped[list["Conversation"]] = relationship(
         "Conversation",
+        back_populates="chatbot",
+        cascade="all, delete-orphan",
+    )
+    
+    knowledge_bases: Mapped[list["KnowledgeBase"]] = relationship(
+        "KnowledgeBase",
         back_populates="chatbot",
         cascade="all, delete-orphan",
     )

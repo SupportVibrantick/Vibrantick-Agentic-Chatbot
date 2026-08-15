@@ -81,7 +81,11 @@ class InvitationService:
             expires_at=expires_at,
         )
 
-        return await self.repo.create(invitation)
+        await self.repo.add(invitation)
+        await self.repo.flush()
+        await self.repo.refresh(invitation)
+ 
+        return invitation
 
     async def list_invitations(
         self,
@@ -201,8 +205,9 @@ class InvitationService:
         invitation.status = InvitationStatus.ACCEPTED
         invitation.accepted_at = datetime.now(UTC)
 
-        await self.repo.update(invitation)
-
+        await self.repo.flush()
+        await self.repo.refresh(invitation)
+        
         return AcceptInvitationResponse(
             message="Invitation accepted successfully",
             organization_id=organization.id,

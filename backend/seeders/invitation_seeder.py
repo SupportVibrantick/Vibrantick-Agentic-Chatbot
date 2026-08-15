@@ -1,40 +1,36 @@
 from __future__ import annotations
 
-from backend.seeders.builders.member_builder import MemberBuilder
+from seeders.builders.invitation_builder import InvitationBuilder
 from seeders.base import BaseSeeder
 
 
-class MemberSeeder(BaseSeeder):
+class InvitationSeeder(BaseSeeder):
     """
-    Seeds organization memberships.
+    Seeds organization invitations.
     """
 
-    name = "organization_members"
+    name = "invitations"
 
     depends_on = (
         "users",
         "organizations",
+        "organization_members",
     )
 
     async def run(self) -> None:
-        builder = MemberBuilder(self.session)
+        builder = InvitationBuilder(self.session)
 
         organization = self.context["organization"]
         owner = self.context["owner"]
-        admin = self.context["admin"]
-        members = self.context["members"]
 
-        await builder.owner(
+        invitations = await builder.create_many(
             organization=organization,
-            user=owner,
+            inviter=owner,
+            emails=[
+                "john@example.com",
+                "alice@example.com",
+                "bob@example.com",
+            ],
         )
 
-        await builder.admin(
-            organization=organization,
-            user=admin,
-        )
-
-        await builder.create_many(
-            organization=organization,
-            users=members,
-        )
+        self.context["invitations"] = invitations

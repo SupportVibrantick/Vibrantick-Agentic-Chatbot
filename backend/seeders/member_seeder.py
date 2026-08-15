@@ -39,4 +39,4 @@ class MemberSeeder(BaseSeeder):
         await builder.create_many(
             organization=organization,
             users=members,
-        ) -n
+        ) 

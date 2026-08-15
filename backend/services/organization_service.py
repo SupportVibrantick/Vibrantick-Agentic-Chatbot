@@ -3,24 +3,24 @@ import re
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.roles import OrganizationRole
-from repositories.member_repository import MemberRepository
-
-
 from models.organization import Organization
+from repositories.member_repository import MemberRepository
 from repositories.organization_repository import OrganizationRepository
+
 
 class OrganizationService:
     def __init__(self, db: AsyncSession):
         self.repo = OrganizationRepository(db)
         self.member_repo = MemberRepository(db)
 
-    async def _generate_slug(self, name: str) -> str:
+    async def _generate_slug(
+        self,
+        name: str,
+    ) -> str:
         """
         Convert organization name into URL-friendly slug.
-        Example:
-            Acme Inc -> acme-inc
-            My Company Pvt Ltd -> my-company-pvt-ltd
         """
+
         slug = name.lower().strip()
         slug = re.sub(r"[^a-z0-9]+", "-", slug)
         slug = slug.strip("-")
@@ -53,7 +53,10 @@ class OrganizationService:
             owner_id=owner_id,
         )
 
-        organization = await self.repo.create(organization)
+        await self.repo.add(organization)
+        await self.repo.flush()
+        await self.repo.refresh(organization)
+
         await self.member_repo.add_member(
             organization_id=organization.id,
             user_id=owner_id,
@@ -66,22 +69,30 @@ class OrganizationService:
         self,
         organization_id: int,
     ) -> Organization | None:
-        return await self.repo.get_by_id(organization_id)
+        return await self.repo.get_by_id(
+            organization_id,
+        )
 
     async def get_my_organizations(
         self,
         user_id: int,
     ) -> list[Organization]:
-        return await self.repo.get_user_organizations(user_id)
+        return await self.repo.get_user_organizations(
+            user_id,
+        )
 
     async def update_organization(
         self,
         organization: Organization,
     ) -> Organization:
-        return await self.repo.update(organization)
+        await self.repo.flush()
+        await self.repo.refresh(organization)
+
+        return organization
 
     async def delete_organization(
         self,
         organization: Organization,
     ) -> None:
-        await self.repo.delete(organization)    
+        await self.repo.delete(organization)
+        await self.repo.flush()

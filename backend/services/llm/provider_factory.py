@@ -1,22 +1,18 @@
-from __future__ import annotations
-
-from services.llm.base import BaseLLMProvider
-from services.llm.openai_provider import OpenAIProvider
-from models.chatbot_ai_config import LLMProvider
+from core.settings import settings
 
 
 class ProviderFactory:
-    """
-    Creates the appropriate LLM provider.
-    """
-
     @staticmethod
-    def create(
-        provider: LLMProvider,
-    ) -> BaseLLMProvider:
-        if provider == LLMProvider.OPENAI:
+    def create():
+        provider = settings.LLM_PROVIDER.lower()
+
+        if provider == "deepseek":
+            from services.llm.deepseek_service import DeepSeekService
+            return DeepSeekService()
+        elif provider == "openai":
+            from services.llm.openai_provider import OpenAIProvider
             return OpenAIProvider()
 
         raise ValueError(
-            f"Unsupported LLM provider: {provider}"
+            f"Unsupported LLM Provider: {provider}"
         )

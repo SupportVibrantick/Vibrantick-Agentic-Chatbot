@@ -1,52 +1,62 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from openai import AsyncOpenAI
 
 from core.settings import settings
-from services.llm.base import BaseLLMProvider
-from services.llm.types import (
-    LLMMessage,
-    LLMRequest,
-    LLMResponse,
-)
+from services.llm.base import BaseLLMService
+from services.llm.types import LLMRequest
 
 
-class OpenAIProvider(BaseLLMProvider):
+class OpenAIProvider(BaseLLMService):
     """
-    OpenAI implementation of the BaseLLMProvider.
+    OpenAI implementation of the BaseLLMService interface.
     """
 
     def __init__(self) -> None:
-        self._client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
+        self.client = AsyncOpenAI(
+            api_key=settings.OPENAI_API_KEY or "dummy_key",
         )
 
-    async def generate(
+    async def chat(
         self,
         request: LLMRequest,
-    ) -> LLMResponse:
-        messages = [
-            {
-                "role": message.role,
-                "content": message.content,
-            }
-            for message in request.messages
-        ]
-
-        response = await self._client.chat.completions.create(
-            model=request.model,
-            messages=messages,
+    ) -> str:
+        response = await self.client.chat.completions.create(
+            model=settings.LLM_MODEL or "gpt-4o-mini",
+            messages=[
+                {
+                    "role": message.role.value if hasattr(message.role, "value") else str(message.role),
+                    "content": message.content,
+                }
+                for message in request.messages
+            ],
             temperature=request.temperature,
             max_tokens=request.max_tokens,
         )
+        return response.choices[0].message.content or ""
 
-        choice = response.choices[0]
-
-        return LLMResponse(
-            content=choice.message.content or "",
-            model=response.model,
-            finish_reason=choice.finish_reason,
-            prompt_tokens=response.usage.prompt_tokens,
-            completion_tokens=response.usage.completion_tokens,
-            total_tokens=response.usage.total_tokens,
+    async def stream(
+        self,
+        request: LLMRequest,
+    ) -> AsyncIterator[str]:
+        stream = await self.client.chat.completions.create(
+            model=settings.LLM_MODEL or "gpt-4o-mini",
+            messages=[
+                {
+                    "role": message.role.value if hasattr(message.role, "value") else str(message.role),
+                    "content": message.content,
+                }
+                for message in request.messages
+            ],
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            stream=True,
         )
+
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if delta is not None and delta.content is not None:
+                yield delta.content

@@ -1,8 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from models.chatbot import Chatbot
 from repositories.base_repository import BaseRepository
+from repositories.base_repository import ModelType
 
 class ChatbotRepository(BaseRepository[Chatbot]):
     model = Chatbot
@@ -23,7 +23,7 @@ class ChatbotRepository(BaseRepository[Chatbot]):
             )
         )
 
-        result = await self.db.execute(stmt)
+        result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def list_by_organization(
@@ -36,7 +36,7 @@ class ChatbotRepository(BaseRepository[Chatbot]):
             .order_by(Chatbot.created_at.desc())
         )
 
-        result = await self.db.execute(stmt)
+        result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def exists_by_slug(
@@ -58,5 +58,15 @@ class ChatbotRepository(BaseRepository[Chatbot]):
             .order_by(Chatbot.name)
         )
 
-        result = await self.db.execute(stmt)
+        result = await self.session.execute(stmt)
         return list(result.scalars().all())
+    async def update(
+        self,
+        instance: ModelType,
+    ) -> None:
+        """
+        Flush pending updates.
+        This method ensures that any changes made to the instance are persisted in the database before committing.
+        """
+        await self.flush()
+        await self.refresh(instance)

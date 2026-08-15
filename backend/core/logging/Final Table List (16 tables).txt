@@ -2,7 +2,7 @@ Final Table List (16 tables)
 Domain	Tables
 Identity	users, organizations, organization_members, invitations
 Chatbots	chatbots, chatbot_settings
-Knowledge Base	knowledge_sources, document_chunks
+Knowledge Base	documents, document_chunks
 Conversations	visitors, conversations, messages, memories
 AI Tools	tools, chatbot_tools
 Security	api_keys

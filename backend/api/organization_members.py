@@ -31,6 +31,7 @@ async def add_member(
 
     try:
         return await service.add_member(
+            current_user=current_user,
             organization_id=organization_id,
             email=data.email,
             role=data.role,
@@ -54,7 +55,8 @@ async def get_members(
     service = MemberService(db)
 
     return await service.get_members(
-        organization_id,
+        current_user=current_user,
+        organization_id=organization_id, 
     )
 
 @router.patch(
@@ -72,6 +74,7 @@ async  def update_role(
 
     try:
         return await service.update_role(
+            current_user=current_user,
             organization_id=organization_id,
             user_id=user_id,
             role=data.role,
@@ -97,6 +100,7 @@ async def remove_member(
 
     try:
         await service.remove_member(
+            current_user=current_user,
             organization_id=organization_id,
             user_id=user_id,
         )

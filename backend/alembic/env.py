@@ -9,6 +9,7 @@ from database.base import Base
 # Import all models so they are registered with Base.metadata
 import models  # noqa: F401
 
+import sqlalchemy as sa
 
 config = context.config
 
@@ -22,6 +23,9 @@ database_url = settings.DATABASE_URL.replace(
 )
 
 config.set_main_option("sqlalchemy.url", database_url)
+print("=" * 80)
+print("ALEMBIC DATABASE URL:", database_url)
+print("=" * 80)
 
 target_metadata = Base.metadata
 

@@ -2,7 +2,6 @@ from sqlalchemy import select
 
 from models.organization import Organization
 from models.organization_member import OrganizationMember
-
 from repositories.base_repository import BaseRepository
 
 
@@ -47,3 +46,21 @@ class OrganizationRepository(BaseRepository[Organization]):
         result = await self.session.execute(stmt)
 
         return list(result.scalars().all())
+
+    async def get_by_id(
+        self,
+        organization_id: int,
+    ) -> Organization | None:
+        """
+        Retrieve an organization by its primary key.
+        """
+        stmt = (
+            select(Organization)
+            .where(
+                Organization.id == organization_id
+            )
+        )
+
+        result = await self.session.execute(stmt)
+
+        return result.scalar_one_or_none()
