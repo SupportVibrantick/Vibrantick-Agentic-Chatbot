@@ -31,6 +31,8 @@ class KnowledgeBaseStatus(str, Enum):
 if TYPE_CHECKING:
     from models.chatbot import Chatbot
     from models.document import Document
+    from models.knowledge_source import KnowledgeSource
+
 
 class KnowledgeBase(TimestampMixin, Base):
     __tablename__ = "knowledge_bases"
@@ -113,6 +115,14 @@ class KnowledgeBase(TimestampMixin, Base):
 
     documents: Mapped[list["Document"]] = relationship(
         "Document",
+        back_populates="knowledge_base",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
+    knowledge_sources: Mapped[list["KnowledgeSource"]] = relationship(
+        "KnowledgeSource",
         back_populates="knowledge_base",
         cascade="all, delete-orphan",
         passive_deletes=True,

@@ -18,15 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database.base import Base
 from models.base import TimestampMixin
-if TYPE_CHECKING:
-    from models.document_chunk import DocumentChunk
-    document_chunks: Mapped[list["DocumentChunk"]] = relationship(
-    "DocumentChunk",
-    back_populates="knowledge_source",
-    cascade="all, delete-orphan",
-    passive_deletes=True,
-    lazy="selectin",
-    )
+
 
 class KnowledgeSourceType(str, Enum):
     PDF = "pdf"
@@ -53,7 +45,6 @@ class KnowledgeSourceStatus(str, Enum):
 
 if TYPE_CHECKING:
     from models.knowledge_base import KnowledgeBase
-    from models.document_chunk import DocumentChunk
 
 
 class KnowledgeSource(TimestampMixin, Base):
@@ -65,20 +56,37 @@ class KnowledgeSource(TimestampMixin, Base):
             "name",
             name="uq_kb_source_name",
         ),
-        Index("ix_knowledge_source_kb", "knowledge_base_id"),
-        Index("ix_knowledge_source_status", "status"),
-        Index("ix_knowledge_source_type", "source_type"),
+        Index(
+            "ix_knowledge_source_kb",
+            "knowledge_base_id",
+        ),
+        Index(
+            "ix_knowledge_source_status",
+            "status",
+        ),
+        Index(
+            "ix_knowledge_source_type",
+            "source_type",
+        ),
         {"extend_existing": True},
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+    )
 
     knowledge_base_id: Mapped[int] = mapped_column(
-        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        ForeignKey(
+            "knowledge_bases.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
     )
 
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
 
     source_type: Mapped[KnowledgeSourceType] = mapped_column(
         SQLEnum(KnowledgeSourceType),
@@ -91,28 +99,48 @@ class KnowledgeSource(TimestampMixin, Base):
         nullable=False,
     )
 
-    file_name: Mapped[str | None] = mapped_column(String(255))
-    file_path: Mapped[str | None] = mapped_column(String(1000))
-    mime_type: Mapped[str | None] = mapped_column(String(150))
-    file_size: Mapped[int | None] = mapped_column(BigInteger)
-    checksum: Mapped[str | None] = mapped_column(String(64))
-    source_url: Mapped[str | None] = mapped_column(String(2048))
-    error_message: Mapped[str | None] = mapped_column(Text)
+    file_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    file_path: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+
+    mime_type: Mapped[str | None] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+
+    file_size: Mapped[int | None] = mapped_column(
+        BigInteger,
+        nullable=True,
+    )
+
+    checksum: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+
+    source_url: Mapped[str | None] = mapped_column(
+        String(2048),
+        nullable=True,
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
 
     processed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     knowledge_base: Mapped["KnowledgeBase"] = relationship(
         "KnowledgeBase",
-        back_populates="documents",
-        lazy="selectin",
-    )
-
-    document_chunks: Mapped[list["DocumentChunk"]] = relationship(
-        "DocumentChunk",
-        back_populates="knowledge_source",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
+        back_populates="knowledge_sources",
         lazy="selectin",
     )
