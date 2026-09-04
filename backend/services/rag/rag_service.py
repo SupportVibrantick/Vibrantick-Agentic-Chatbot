@@ -1,15 +1,8 @@
 from __future__ import annotations
 
 from database.unit_of_work import UnitOfWork
-
-from services.documents.retriever import (
-    DocumentRetriever,
-)
-
-from services.llm.provider_factory import (
-    ProviderFactory,
-)
-
+from services.documents.retriever import DocumentRetriever
+from services.llm.provider_factory import ProviderFactory
 from services.llm.types import (
     LLMMessage,
     LLMRequest,
@@ -24,14 +17,11 @@ class RAGService:
     Pipeline
 
     User Question
-          │
-          ▼
-    Retrieve Context
-          │
-          ▼
+          ↓
+    Retrieve Context from the requested knowledge base
+          ↓
     DeepSeek
-          │
-          ▼
+          ↓
     Final Answer
     """
 
@@ -40,25 +30,23 @@ class RAGService:
         uow: UnitOfWork,
     ):
         self.uow = uow
-
-        self.retriever = DocumentRetriever(
-            uow,
-        )
-
+        self.retriever = DocumentRetriever(uow)
         self.llm = ProviderFactory.create()
 
     async def ask(
         self,
+        *,
         question: str,
+        knowledge_base_id: int,
     ) -> str:
 
-        context = (
-            await self.retriever.retrieve_context(
-                question,
-            )
+        context = await self.retriever.retrieve_context(
+            question=question,
+            knowledge_base_id=knowledge_base_id,
         )
 
-        system_prompt = f"""
+        if context:
+            system_prompt = f"""
 You are an AI assistant.
 
 Answer ONLY using the provided context.
@@ -71,6 +59,16 @@ reply:
 Context:
 
 {context}
+"""
+        else:
+            system_prompt = """
+You are an AI assistant.
+
+There is no relevant uploaded-document context available.
+
+Reply:
+
+"I don't know based on the uploaded documents."
 """
 
         request = LLMRequest(
@@ -86,6 +84,5 @@ Context:
             ],
         )
 
-        return await self.llm.chat(
-            request,
-        )
+        return await self.llm.chat(request)
+    

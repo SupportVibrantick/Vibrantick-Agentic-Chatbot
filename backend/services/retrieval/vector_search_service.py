@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.document_chunk import DocumentChunk
-from services.document_processing.embedding_service import (
-    EmbeddingService,
+from repositories.document_chunk_repository import (
+    DocumentChunkRepository,
 )
+from services.documents.embeddings import EmbeddingService
 
 
 class VectorSearchService:
@@ -18,7 +18,7 @@ class VectorSearchService:
         self,
         session: AsyncSession,
     ) -> None:
-        self.session = session
+        self.repository = DocumentChunkRepository(session)
         self.embedding_service = EmbeddingService()
 
     async def search(
@@ -26,33 +26,16 @@ class VectorSearchService:
         *,
         query: str,
         knowledge_base_id: int,
-        embedding_model: str,
         top_k: int = 5,
     ) -> list[DocumentChunk]:
-
         query_embedding = (
-            await self.embedding_service.embed(
+            await self.embedding_service.embed_query(
                 query,
-                model=embedding_model,
             )
         )
 
-        stmt = (
-            select(DocumentChunk)
-            .join(DocumentChunk.knowledge_source)
-            .where(
-                DocumentChunk.knowledge_source.has(
-                    knowledge_base_id=knowledge_base_id
-                )
-            )
-            .order_by(
-                DocumentChunk.embedding.cosine_distance(
-                    query_embedding
-                )
-            )
-            .limit(top_k)
+        return await self.repository.similarity_search(
+            knowledge_base_id=knowledge_base_id,
+            embedding=query_embedding,
+            limit=top_k,
         )
-
-        result = await self.session.execute(stmt)
-
-        return list(result.scalars().all())

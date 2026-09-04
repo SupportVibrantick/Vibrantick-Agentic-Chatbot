@@ -10,31 +10,22 @@ from repositories.base_repository import BaseRepository
 class ChatbotAIConfigRepository(
     BaseRepository[ChatbotAIConfig]
 ):
-    """
-    Repository for ChatbotAIConfig persistence.
-    """
+    model = ChatbotAIConfig
 
     def __init__(
         self,
         session: AsyncSession,
     ) -> None:
-        super().__init__(
-            session=session,
-            model=ChatbotAIConfig,
-        )
+        super().__init__(session)
 
     async def get_by_chatbot_id(
         self,
         chatbot_id: int,
     ) -> ChatbotAIConfig | None:
-        """
-        Return AI configuration for a chatbot.
-        """
-
         stmt = (
             select(ChatbotAIConfig)
             .where(
-                ChatbotAIConfig.chatbot_id == chatbot_id
+                ChatbotAIConfig.chatbot_id == chatbot_id,
             )
         )
 

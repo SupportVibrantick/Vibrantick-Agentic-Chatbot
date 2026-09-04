@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -8,8 +9,13 @@ from repositories.base_repository import BaseRepository
 
 
 class MessageRepository(BaseRepository[Message]):
-    def __init__(self, session: AsyncSession) -> None:
-        super().__init__(Message, session)
+    model = Message
+
+    def __init__(
+        self,
+        session: AsyncSession,
+    ) -> None:
+        super().__init__(session)
 
     async def list_by_conversation(
         self,
@@ -18,9 +24,15 @@ class MessageRepository(BaseRepository[Message]):
     ) -> list[Message]:
         stmt = (
             select(Message)
-            .where(Message.conversation_id == conversation_id)
-            .order_by(Message.created_at.asc())
+            .where(
+                Message.conversation_id == conversation_id,
+            )
+            .order_by(
+                Message.created_at.asc(),
+            )
             .limit(limit)
         )
+
         result = await self.session.execute(stmt)
+
         return list(result.scalars().all())

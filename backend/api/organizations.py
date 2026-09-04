@@ -25,11 +25,7 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "",
-    response_model=OrganizationResponse,
-    status_code=status.HTTP_201_CREATED,
-)
+@router.post("", response_model=OrganizationResponse, status_code=201)
 async def create_organization(
     data: OrganizationCreate,
     db: AsyncSession = Depends(get_db),
@@ -37,12 +33,16 @@ async def create_organization(
 ):
     service = OrganizationService(db)
 
-    return await service.create_organization(
+    organization = await service.create_organization(
         owner_id=current_user.id,
         name=data.name,
         description=data.description,
         logo=data.logo,
     )
+
+    await db.commit()
+
+    return organization
 
 
 @router.get(

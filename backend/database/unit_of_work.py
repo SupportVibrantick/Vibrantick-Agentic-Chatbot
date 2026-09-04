@@ -24,6 +24,9 @@ from repositories.document_repository import (
 from repositories.document_chunk_repository import (
     DocumentChunkRepository,
 )
+from repositories.knowledge_source_repository import (
+    KnowledgeSourceRepository,
+)
 from repositories.conversation_repository import ConversationRepository
 from repositories.message_repository import MessageRepository
 
@@ -64,7 +67,9 @@ class UnitOfWork:
         ) = None
         self._conversations: ConversationRepository | None = None
         self._messages: MessageRepository | None = None
-
+        self._knowledge_sources: (
+            KnowledgeSourceRepository | None
+            ) = None
     # ---------------------------------------------------------
     # Session
     # ---------------------------------------------------------
@@ -93,6 +98,8 @@ class UnitOfWork:
         try:
             if exc_type is not None:
                 await self.rollback()
+            else:
+                await self.commit()
         finally:
             if not self._external_session:
                 await self.session.close()
@@ -110,7 +117,7 @@ class UnitOfWork:
             self._document_chunks = None
             self._conversations = None
             self._messages = None
-
+            self._knowledge_sources = None
     # ---------------------------------------------------------
     # Transaction API
     # ---------------------------------------------------------
@@ -240,3 +247,16 @@ class UnitOfWork:
         if self._messages is None:
             self._messages = MessageRepository(self.session)
         return self._messages
+    @property
+    def knowledge_sources(
+        self,
+    ) -> KnowledgeSourceRepository:
+        if self._knowledge_sources is None:
+            self._knowledge_sources = (
+                KnowledgeSourceRepository(
+                    self.session
+                )
+            )
+
+        return self._knowledge_sources
+

@@ -1,5 +1,9 @@
 import uuid
 
+import pytest
+
+from services.llm.provider_factory import ProviderFactory
+
 
 CHATBOT_PAYLOAD = {
     "name": "Test Chatbot",
@@ -9,6 +13,15 @@ CHATBOT_PAYLOAD = {
     "placeholder_text": "Ask me anything...",
     "is_public": False,
 }
+
+
+class FakeLLMProvider:
+    async def chat(self, request):
+        return "Test assistant response"
+
+    async def stream(self, request):
+        yield "Test "
+        yield "assistant response"
 
 
 async def _create_chatbot(
@@ -43,7 +56,11 @@ async def _register_user(client):
     }
 
 
-async def _login(client, email: str, password: str):
+async def _login(
+    client,
+    email: str,
+    password: str,
+):
     response = await client.post(
         "/api/auth/login",
         data={
@@ -59,6 +76,11 @@ async def _login(client, email: str, password: str):
     client.headers.update(
         {"Authorization": f"Bearer {token}"}
     )
+
+
+# ==========================================================
+# Existing chatbot tests
+# ==========================================================
 
 
 async def test_create_chatbot_requires_authentication(
@@ -89,7 +111,6 @@ async def test_owner_can_create_chatbot(
     assert data["organization_id"] == organization["id"]
     assert data["name"] == CHATBOT_PAYLOAD["name"]
 
-    # The organization owner is the authenticated creator.
     assert data["created_by"] == organization["owner_id"]
 
 
@@ -98,10 +119,8 @@ async def test_member_cannot_create_chatbot(
     client,
     organization,
 ):
-    # Register a second user.
     second_user = await _register_user(client)
 
-    # Current authenticated user is the organization owner.
     response = await authenticated_client.post(
         f"/api/organizations/{organization['id']}/members",
         json={
@@ -112,7 +131,6 @@ async def test_member_cannot_create_chatbot(
 
     assert response.status_code == 201
 
-    # Authenticate as the member.
     await _login(
         client,
         second_user["email"],
@@ -136,7 +154,6 @@ async def test_member_can_list_chatbots(
     client,
     organization,
 ):
-    # Owner creates a chatbot first.
     create_response = await _create_chatbot(
         authenticated_client,
         organization["id"],
@@ -144,10 +161,8 @@ async def test_member_can_list_chatbots(
 
     assert create_response.status_code == 201
 
-    # Register second user.
     second_user = await _register_user(client)
 
-    # Owner adds second user as MEMBER.
     member_response = await authenticated_client.post(
         f"/api/organizations/{organization['id']}/members",
         json={
@@ -158,7 +173,6 @@ async def test_member_can_list_chatbots(
 
     assert member_response.status_code == 201
 
-    # Login as MEMBER.
     await _login(
         client,
         second_user["email"],
@@ -182,7 +196,6 @@ async def test_non_member_cannot_list_chatbots(
     client,
     organization,
 ):
-    # Create chatbot in the organization.
     create_response = await _create_chatbot(
         authenticated_client,
         organization["id"],
@@ -190,7 +203,6 @@ async def test_non_member_cannot_list_chatbots(
 
     assert create_response.status_code == 201
 
-    # Register another user but DON'T add them to the organization.
     outsider = await _register_user(client)
 
     await _login(
@@ -215,7 +227,6 @@ async def test_non_member_cannot_get_chatbot(
     client,
     organization,
 ):
-    # Owner creates chatbot.
     create_response = await _create_chatbot(
         authenticated_client,
         organization["id"],
@@ -225,7 +236,6 @@ async def test_non_member_cannot_get_chatbot(
 
     chatbot = create_response.json()
 
-    # Register outsider.
     outsider = await _register_user(client)
 
     await _login(
@@ -250,7 +260,6 @@ async def test_member_can_get_chatbot(
     client,
     organization,
 ):
-    # Owner creates chatbot.
     create_response = await _create_chatbot(
         authenticated_client,
         organization["id"],
@@ -260,10 +269,8 @@ async def test_member_can_get_chatbot(
 
     chatbot = create_response.json()
 
-    # Register second user.
     second_user = await _register_user(client)
 
-    # Owner adds member.
     member_response = await authenticated_client.post(
         f"/api/organizations/{organization['id']}/members",
         json={
@@ -274,7 +281,6 @@ async def test_member_can_get_chatbot(
 
     assert member_response.status_code == 201
 
-    # Login as member.
     await _login(
         client,
         second_user["email"],
@@ -302,3 +308,132 @@ async def test_get_missing_chatbot_returns_404(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Chatbot not found."
+
+
+# ==========================================================
+# Conversation security tests
+# ==========================================================
+
+
+@pytest.mark.asyncio
+async def test_cannot_reuse_conversation_with_different_chatbot(
+    authenticated_client,
+    organization,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        ProviderFactory,
+        "create",
+        lambda: FakeLLMProvider(),
+    )
+
+    # Create chatbot A.
+    response = await _create_chatbot(
+        authenticated_client,
+        organization["id"],
+    )
+
+    assert response.status_code == 201
+    chatbot_a = response.json()
+
+    # Create chatbot B in the same organization.
+    response = await authenticated_client.post(
+        f"/chatbots/organizations/{organization['id']}",
+        json={
+            **CHATBOT_PAYLOAD,
+            "name": "Second Chatbot",
+        },
+    )
+
+    assert response.status_code == 201
+    chatbot_b = response.json()
+
+    # Create a conversation using chatbot A.
+    response = await authenticated_client.post(
+        "/api/chat",
+        json={
+            "chatbot_id": chatbot_a["id"],
+            "message": "Hello chatbot A",
+        },
+    )
+
+    assert response.status_code == 200
+
+    conversation_id = response.json()["conversation_id"]
+
+    # Attempt to reuse chatbot A's conversation with chatbot B.
+    response = await authenticated_client.post(
+        "/api/chat",
+        json={
+            "chatbot_id": chatbot_b["id"],
+            "conversation_id": conversation_id,
+            "message": "This must not be allowed",
+        },
+    )
+
+    assert response.status_code == 400
+    assert (
+        response.json()["detail"]
+        == "Conversation does not belong to this chatbot."
+    )
+
+
+@pytest.mark.asyncio
+async def test_non_member_cannot_chat_with_private_chatbot(
+    authenticated_client,
+    client,
+    organization,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        ProviderFactory,
+        "create",
+        lambda: FakeLLMProvider(),
+    )
+
+    # Owner creates a private chatbot.
+    create_response = await _create_chatbot(
+        authenticated_client,
+        organization["id"],
+    )
+
+    assert create_response.status_code == 201
+    chatbot = create_response.json()
+
+    # Register an outsider.
+    outsider = await _register_user(client)
+
+    await _login(
+        client,
+        outsider["email"],
+        outsider["password"],
+    )
+
+    response = await client.post(
+        "/api/chat",
+        json={
+            "chatbot_id": chatbot["id"],
+            "message": "I should not have access",
+        },
+    )
+
+    assert response.status_code == 403
+    assert (
+        response.json()["detail"]
+        == "You are not a member of this organization"
+    )
+
+
+async def test_stream_requires_authentication(
+    client,
+    organization,
+):
+    response = await client.post(
+        "/api/chat/stream",
+        json={
+            "chatbot_id": 1,
+            "message": "Unauthenticated request",
+        },
+    )
+
+    assert response.status_code == 401

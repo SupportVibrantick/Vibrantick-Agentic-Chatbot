@@ -38,6 +38,16 @@ class BaseRepository(Generic[ModelType]):
         Does NOT commit.
         """
         self.session.add(instance)
+        
+    async def create(
+        self,
+        instance: ModelType,
+        ) -> None:
+        """
+        Create a new entity in the current session.
+        Does NOT commit.
+        """
+        await self.add(instance)
 
     async def add_all(
         self,
