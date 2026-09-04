@@ -1,14 +1,15 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from models.chatbot import Chatbot
 from repositories.base_repository import BaseRepository
-from repositories.base_repository import ModelType
+
 
 class ChatbotRepository(BaseRepository[Chatbot]):
     model = Chatbot
 
-    def __init__(self, db: AsyncSession):
-        super().__init__(db)
+    def __init__(self, session: AsyncSession):
+        super().__init__(session)
 
     async def get_by_slug(
         self,
@@ -24,6 +25,7 @@ class ChatbotRepository(BaseRepository[Chatbot]):
         )
 
         result = await self.session.execute(stmt)
+
         return result.scalar_one_or_none()
 
     async def list_by_organization(
@@ -32,11 +34,14 @@ class ChatbotRepository(BaseRepository[Chatbot]):
     ) -> list[Chatbot]:
         stmt = (
             select(Chatbot)
-            .where(Chatbot.organization_id == organization_id)
+            .where(
+                Chatbot.organization_id == organization_id,
+            )
             .order_by(Chatbot.created_at.desc())
         )
 
         result = await self.session.execute(stmt)
+
         return list(result.scalars().all())
 
     async def exists_by_slug(
@@ -45,28 +50,23 @@ class ChatbotRepository(BaseRepository[Chatbot]):
         slug: str,
     ) -> bool:
         chatbot = await self.get_by_slug(
-            organization_id,
-            slug,
+            organization_id=organization_id,
+            slug=slug,
         )
 
         return chatbot is not None
 
-    async def list_public_chatbots(self) -> list[Chatbot]:
+    async def list_public_chatbots(
+        self,
+    ) -> list[Chatbot]:
         stmt = (
             select(Chatbot)
-            .where(Chatbot.is_public.is_(True))
+            .where(
+                Chatbot.is_public.is_(True),
+            )
             .order_by(Chatbot.name)
         )
 
         result = await self.session.execute(stmt)
+
         return list(result.scalars().all())
-    async def update(
-        self,
-        instance: ModelType,
-    ) -> None:
-        """
-        Flush pending updates.
-        This method ensures that any changes made to the instance are persisted in the database before committing.
-        """
-        await self.flush()
-        await self.refresh(instance)

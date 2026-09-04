@@ -4,19 +4,22 @@ import hashlib
 from pathlib import Path
 
 from database.unit_of_work import UnitOfWork
+from models.document import Document, DocumentStatus
 from models.knowledge_source import (
     KnowledgeSource,
     KnowledgeSourceStatus,
     KnowledgeSourceType,
 )
-from services.storage import LocalStorage
 from services.document_processing.ingestion_service import (
     IngestionService,
 )
+from services.storage import LocalStorage
+
 
 class KnowledgeSourceService:
     """
-    Handles uploaded knowledge sources.
+    Handles uploaded knowledge sources and creates the
+    corresponding Document used by the ingestion pipeline.
     """
 
     def __init__(
@@ -35,7 +38,6 @@ class KnowledgeSourceService:
         content: bytes,
         content_type: str,
     ) -> KnowledgeSource:
-
         knowledge_base = await self.uow.knowledge_bases.get_by_id(
             knowledge_base_id
         )
@@ -59,11 +61,15 @@ class KnowledgeSourceService:
 
         checksum = hashlib.sha256(content).hexdigest()
 
-        storage_path = self.storage.save_file(
+        storage_metadata = self.storage.save_bytes(
             filename=filename,
             content=content,
+            content_type=content_type,
         )
-
+        storage_path = storage_metadata["file_path"]
+        # ---------------------------------------------------------
+        # 1. Create KnowledgeSource
+        # ---------------------------------------------------------
         source = KnowledgeSource(
             knowledge_base_id=knowledge_base_id,
             name=filename,
@@ -76,13 +82,38 @@ class KnowledgeSourceService:
             checksum=checksum,
         )
 
-        await self.uow.documents.add(source)
+        await self.uow.knowledge_sources.add(source)
         await self.uow.flush()
         await self.uow.refresh(source)
+
+        # ---------------------------------------------------------
+        # 2. Create actual Document
+        # ---------------------------------------------------------
+        document = Document(
+            knowledge_base_id=knowledge_base_id,
+            original_filename=filename,
+            stored_filename=Path(storage_path).name,
+            storage_path=storage_path,
+            content_type=content_type,
+            file_size=len(content),
+            status=DocumentStatus.UPLOADED,
+        )
+
+        await self.uow.documents.add(document)
+        await self.uow.flush()
+        await self.uow.refresh(document)
+
+        # ---------------------------------------------------------
+        # 3. Process Document
+        # ---------------------------------------------------------
         ingestion = IngestionService()
+
         await ingestion.ingest(
+            document=document,
             knowledge_source=source,
             uow=self.uow,
-            )
+        )
+
         await self.uow.refresh(source)
+
         return source

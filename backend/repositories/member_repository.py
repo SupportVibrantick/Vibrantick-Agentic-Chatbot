@@ -1,3 +1,6 @@
+
+from __future__ import annotations
+
 from sqlalchemy import select
 
 from core.roles import OrganizationRole
@@ -18,11 +21,6 @@ class MemberRepository(BaseRepository[OrganizationMember]):
         user_id: int,
         role: OrganizationRole,
     ) -> OrganizationMember:
-        """
-        Create a new organization membership.
-
-        Does NOT commit.
-        """
         member = OrganizationMember(
             organization_id=organization_id,
             user_id=user_id,
@@ -84,11 +82,6 @@ class MemberRepository(BaseRepository[OrganizationMember]):
         member: OrganizationMember,
         role: OrganizationRole,
     ) -> OrganizationMember:
-        """
-        Update a member's role.
-
-        Does NOT commit.
-        """
         member.role = role
 
         await self.flush()
@@ -100,9 +93,4 @@ class MemberRepository(BaseRepository[OrganizationMember]):
         self,
         member: OrganizationMember,
     ) -> None:
-        """
-        Remove a member.
-
-        Does NOT commit.
-        """
         await self.delete(member)

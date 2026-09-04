@@ -27,7 +27,9 @@ from api.public_invitations import (
 from api.test_email import (
     router as test_email_router,
 )
-from api.users import (router as users_router,)
+from api.users import (
+    router as users_router,
+)
 from api.chatbot import router as chatbot_router
 from api.conversations import router as conversations_router
 from api.knowledge_sources import router as knowledge_sources_router
@@ -83,6 +85,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -155,15 +161,16 @@ app.include_router(
     chat_router,
     prefix="/api",
 )
-#-----------------------------------------------------
-# Chatbot & Conversation APIs  
-#-----------------------------------------------------
+# -----------------------------------------------------
+# Chatbot & Conversation APIs
+# -----------------------------------------------------
 app.include_router(chatbot_router)
 app.include_router(conversations_router, prefix="/api")
 app.include_router(knowledge_sources_router, prefix="/api")
 # -----------------------------------------------------
 # Health
 # -----------------------------------------------------
+
 
 @app.get("/")
 async def root():

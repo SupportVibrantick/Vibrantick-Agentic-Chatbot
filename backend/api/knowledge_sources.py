@@ -1,5 +1,6 @@
 from fastapi import (
     APIRouter,
+    Depends,
     File,
     HTTPException,
     UploadFile,
@@ -7,10 +8,12 @@ from fastapi import (
 )
 
 from database.unit_of_work import UnitOfWork
+from dependencies.database import get_uow
 from schemas.knowledge_source import KnowledgeSourceResponse
 from services.knowledge_source_service import (
     KnowledgeSourceService,
 )
+
 
 router = APIRouter(
     prefix="/knowledge-bases",
@@ -26,25 +29,24 @@ router = APIRouter(
 async def upload_source(
     knowledge_base_id: int,
     file: UploadFile = File(...),
+    uow: UnitOfWork = Depends(get_uow),
 ):
     content = await file.read()
 
-    async with UnitOfWork() as uow:
+    service = KnowledgeSourceService(uow)
 
-        service = KnowledgeSourceService(uow)
+    try:
+        source = await service.upload_file(
+            knowledge_base_id=knowledge_base_id,
+            filename=file.filename or "uploaded_file",
+            content=content,
+            content_type=file.content_type or "",
+        )
 
-        try:
-            source = await service.upload_file(
-                knowledge_base_id=knowledge_base_id,
-                filename=file.filename,
-                content=content,
-                content_type=file.content_type or "",
-            )
+        return source
 
-            return source
-
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=400,
-                detail=str(exc),
-            )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc

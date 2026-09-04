@@ -17,7 +17,8 @@ from services.llm.types import (
 
 class ConversationService:
     """
-    Handles chatbot conversations with multi-turn memory and DB persistence.
+    Handles chatbot conversations with multi-turn memory,
+    RAG context, LLM interaction, and database persistence.
     """
 
     async def _get_or_create_conversation(
@@ -28,19 +29,40 @@ class ConversationService:
         message: str,
         uow: UnitOfWork,
     ) -> Conversation:
-        if conversation_id:
-            conversation = await uow.conversations.get_by_id(conversation_id)
-            if conversation:
-                return conversation
+        """
+        Return an existing conversation only when it belongs
+        to the requested chatbot.
 
-        title = message[:40] + ("..." if len(message) > 40 else "")
+        Otherwise create a new conversation.
+        """
+        if conversation_id is not None:
+            conversation = await uow.conversations.get_by_id(
+                conversation_id
+            )
+
+            if conversation is None:
+                raise ValueError("Conversation not found.")
+
+            if conversation.chatbot_id != chatbot_id:
+                raise ValueError(
+                    "Conversation does not belong to this chatbot."
+                )
+
+            return conversation
+
+        title = message[:40] + (
+            "..." if len(message) > 40 else ""
+        )
+
         conversation = Conversation(
             chatbot_id=chatbot_id,
             title=title,
             created_by=user_id,
         )
+
         await uow.conversations.create(conversation)
         await uow.flush()
+
         return conversation
 
     async def _build_request(
@@ -50,18 +72,32 @@ class ConversationService:
         message: str,
         uow: UnitOfWork,
     ) -> LLMRequest:
+        """
+        Build the LLM request using:
+        - system instructions
+        - conversation history
+        - RAG context
+        - current user message
+        """
         context = ""
-        knowledge_base = await uow.knowledge_bases.get_by_chatbot(chatbot_id)
+
+        knowledge_base = await uow.knowledge_bases.get_by_chatbot(
+            chatbot_id
+        )
+
         if knowledge_base:
             retriever = DocumentRetriever(uow)
+
             context = await retriever.retrieve(
                 knowledge_base_id=knowledge_base.id,
                 question=message,
             )
 
-        messages_history = await uow.messages.list_by_conversation(
-            conversation_id=conversation_id,
-            limit=20,
+        messages_history = (
+            await uow.messages.list_by_conversation(
+                conversation_id=conversation_id,
+                limit=20,
+            )
         )
 
         llm_messages: list[LLMMessage] = [
@@ -69,21 +105,32 @@ class ConversationService:
                 role=LLMMessageRole.SYSTEM,
                 content=(
                     "You are an intelligent enterprise AI assistant. "
-                    "Answer questions accurately using the provided knowledge base context when available."
+                    "Answer questions accurately using the provided "
+                    "knowledge base context when available."
                 ),
             )
         ]
 
         for msg in messages_history:
-            role = (
-                LLMMessageRole.USER
-                if msg.role == MessageRole.USER
-                else LLMMessageRole.ASSISTANT
+            if msg.role == MessageRole.USER:
+                role = LLMMessageRole.USER
+            elif msg.role == MessageRole.ASSISTANT:
+                role = LLMMessageRole.ASSISTANT
+            else:
+                role = LLMMessageRole.SYSTEM
+
+            llm_messages.append(
+                LLMMessage(
+                    role=role,
+                    content=msg.content,
+                )
             )
-            llm_messages.append(LLMMessage(role=role, content=msg.content))
 
         prompt_content = (
-            PromptBuilder.build(context=context, question=message)
+            PromptBuilder.build(
+                context=context,
+                question=message,
+            )
             if context
             else message
         )
@@ -95,7 +142,9 @@ class ConversationService:
             )
         )
 
-        return LLMRequest(messages=llm_messages)
+        return LLMRequest(
+            messages=llm_messages,
+        )
 
     async def chat(
         self,
@@ -105,6 +154,9 @@ class ConversationService:
         conversation_id: int | None = None,
         user_id: int | None = None,
     ) -> dict[str, str | int]:
+        """
+        Execute a non-streaming chat request.
+        """
         conversation = await self._get_or_create_conversation(
             chatbot_id=chatbot_id,
             conversation_id=conversation_id,
@@ -118,6 +170,7 @@ class ConversationService:
             role=MessageRole.USER,
             content=message,
         )
+
         await uow.messages.create(user_msg)
 
         request = await self._build_request(
@@ -128,14 +181,21 @@ class ConversationService:
         )
 
         provider = ProviderFactory.create()
-        response_text = await provider.chat(request)
+
+        response_text = await provider.chat(
+            request
+        )
 
         assistant_msg = Message(
             conversation_id=conversation.id,
             role=MessageRole.ASSISTANT,
             content=response_text,
         )
-        await uow.messages.create(assistant_msg)
+
+        await uow.messages.create(
+            assistant_msg
+        )
+
         await uow.commit()
 
         return {
@@ -151,6 +211,12 @@ class ConversationService:
         conversation_id: int | None = None,
         user_id: int | None = None,
     ) -> AsyncIterator[str]:
+        """
+        Execute a streaming chat request.
+
+        The assistant response is persisted only after
+        the provider finishes streaming successfully.
+        """
         conversation = await self._get_or_create_conversation(
             chatbot_id=chatbot_id,
             conversation_id=conversation_id,
@@ -164,6 +230,7 @@ class ConversationService:
             role=MessageRole.USER,
             content=message,
         )
+
         await uow.messages.create(user_msg)
         await uow.flush()
 
@@ -175,17 +242,27 @@ class ConversationService:
         )
 
         provider = ProviderFactory.create()
-        full_response = []
 
-        async for token in provider.stream(request):
+        full_response: list[str] = []
+
+        async for token in provider.stream(
+            request
+        ):
             full_response.append(token)
             yield token
 
-        response_text = "".join(full_response)
+        response_text = "".join(
+            full_response
+        )
+
         assistant_msg = Message(
             conversation_id=conversation.id,
             role=MessageRole.ASSISTANT,
             content=response_text,
         )
-        await uow.messages.create(assistant_msg)
+
+        await uow.messages.create(
+            assistant_msg
+        )
+
         await uow.commit()

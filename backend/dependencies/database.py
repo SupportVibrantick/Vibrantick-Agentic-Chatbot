@@ -1,22 +1,12 @@
-
 from collections.abc import AsyncGenerator
 
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from database.session import get_db
 from database.unit_of_work import UnitOfWork
 
 
-async def get_uow(
-    db: AsyncSession = Depends(get_db),
-) -> AsyncGenerator[UnitOfWork, None]:
+async def get_uow() -> AsyncGenerator[UnitOfWork, None]:
     """
-    Provide a UnitOfWork using the request's database session.
-
-    This keeps repositories and other database dependencies
-    inside the same AsyncSession.
+    Provide a UnitOfWork that owns its database session
+    and transaction for the duration of the request.
     """
-
-    async with UnitOfWork(db) as uow:
+    async with UnitOfWork() as uow:
         yield uow

@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.document import Document
+from models.knowledge_source import KnowledgeSource
 from repositories.base_repository import BaseRepository
 
 
